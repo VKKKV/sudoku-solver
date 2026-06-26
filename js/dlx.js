@@ -68,7 +68,7 @@ export class DLX {
     }
     
     // Choose column with minimum size (MRV heuristic)
-    const col = this.chooseColumn();
+    let col = this.chooseColumn();
     this.cover(col);
     
     for (let row = col.down; row !== col; row = row.down) {
