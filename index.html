@@ -191,7 +191,7 @@
   <script type="module" src="js/regions.js"></script>
   <script type="module">
     import { DLX } from './js/dlx.js';
-    import { solveSudoku, validateGrid, getSymbols } from './js/solver.js';
+    import { solveSudoku, validateGrid, getSymbols, generatePuzzle } from './js/solver.js';
     import { generateRegions, generateSymmetricRegions } from './js/regions.js';
 
     const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
@@ -347,14 +347,29 @@
         }
 
         function randomFill() {
-          initGrid();
-          const n = Math.floor(size.value * size.value * 0.15);
-          for (let i = 0; i < n; i++) {
-            const r = Math.floor(Math.random() * size.value);
-            const c = Math.floor(Math.random() * size.value);
-            grid.value[r][c] = Math.floor(Math.random() * size.value) + 1;
+          if (regions.value.length !== size.value) {
+            msg('Generate regions first', 'error'); return;
           }
-          draw();
+          msg('Generating puzzle…', 'info');
+          solving.value = true;
+          setTimeout(() => {
+            try {
+              const t0 = performance.now();
+              const result = generatePuzzle(regions.value, size.value, 0.25);
+              const elapsed = (performance.now() - t0).toFixed(0);
+              if (!result) { msg('Generation failed', 'error'); return; }
+              grid.value = result.puzzle;
+              solution.value = result.solution;
+              solved.value = false;
+              showSolution.value = false;
+              draw();
+              const clues = result.puzzle.flat().filter(v => v > 0).length;
+              msg(`Generated ${clues} clues in ${elapsed}ms`, '');
+            } catch (e) {
+              msg('Error: ' + e.message, 'error');
+            }
+            solving.value = false;
+          }, 10);
         }
 
         function solve() {

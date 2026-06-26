@@ -97,6 +97,121 @@ export function solveSudoku(grid, regions, size, maxSolutions = 1) {
 }
 
 /**
+ * Generate a complete valid Sudoku solution.
+ * Uses DLX to find a random solution for the given regions.
+ */
+export function generateSolution(regions, size) {
+  const empty = Array.from({ length: size }, () => new Array(size).fill(0));
+  const dlx = buildCoverMatrixRandom(empty, regions, size);
+  dlx.maxSolutions = 1;
+  dlx.search();
+
+  if (dlx.solutions.length === 0) return null;
+
+  const grid = Array.from({ length: size }, () => new Array(size).fill(0));
+  for (const { r, c, v } of dlx.solutions[0]) {
+    grid[r][c] = v;
+  }
+  return grid;
+}
+
+/**
+ * Build cover matrix with randomized row order for random solutions.
+ */
+function buildCoverMatrixRandom(grid, regions, size) {
+  const numCols = size * size * 4;
+  const dlx = new DLX(numCols);
+
+  const cellOffset = 0;
+  const rowOffset = size * size;
+  const colOffset = size * size * 2;
+  const regionOffset = size * size * 3;
+
+  const regionMap = buildRegionMap(regions, size);
+
+  // Collect all possible placements
+  const placements = [];
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const region = regionMap[r][c];
+      const value = grid[r][c];
+      const values = value !== 0 ? [value - 1] : Array.from({ length: size }, (_, i) => i);
+      for (const v of values) {
+        placements.push({ r, c, v, cols: [
+          cellOffset + r * size + c,
+          rowOffset + r * size + v,
+          colOffset + c * size + v,
+          regionOffset + region * size + v
+        ]});
+      }
+    }
+  }
+
+  // Shuffle placements
+  for (let i = placements.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [placements[i], placements[j]] = [placements[j], placements[i]];
+  }
+
+  // Add rows in shuffled order
+  for (const { r, c, v, cols } of placements) {
+    dlx.addRow({ r, c, v: v + 1 }, cols);
+  }
+
+  return dlx;
+}
+
+/**
+ * Generate a valid Sudoku puzzle.
+ * 1. Generate a complete solution
+ * 2. Remove cells while maintaining unique solution
+ */
+export function generatePuzzle(regions, size, clueRatio = 0.25) {
+  const solution = generateSolution(regions, size);
+  if (!solution) return null;
+
+  const puzzle = solution.map(row => [...row]);
+  const targetClues = Math.max(size, Math.floor(size * size * clueRatio));
+
+  // Create list of all cells and shuffle
+  const cells = [];
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      cells.push([r, c]);
+    }
+  }
+  shuffle(cells);
+
+  // Remove cells one by one, checking uniqueness
+  let removed = 0;
+  const maxRemove = size * size - targetClues;
+
+  for (const [r, c] of cells) {
+    if (removed >= maxRemove) break;
+
+    const backup = puzzle[r][c];
+    puzzle[r][c] = 0;
+
+    // Check if puzzle still has unique solution
+    const solutions = solveSudoku(puzzle, regions, size, 2);
+    if (solutions.length !== 1) {
+      puzzle[r][c] = backup;
+    } else {
+      removed++;
+    }
+  }
+
+  return { puzzle, solution };
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+/**
  * Validate a grid configuration.
  */
 export function validateGrid(grid, regions, size) {
