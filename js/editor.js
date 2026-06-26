@@ -94,7 +94,7 @@ export class GridEditor {
   }
 
   handleMouseMove(e) {
-    const cell = this.getCellFromPos(e.clientX, e.cell);
+    const cell = this.getCellFromPos(e.clientX, e.clientY);
     if (cell) {
       this.hoveredCell = cell;
     } else {

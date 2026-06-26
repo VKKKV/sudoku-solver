@@ -24,15 +24,19 @@ export function generateRegions(size, numSwaps = null, seed = null) {
     const regionIdx = Math.floor(rng() * size);
     const region = regions[regionIdx];
     
+    if (!region || region.length === 0) continue;
+    
     // Pick a random cell in this region
     const cellIdx = Math.floor(rng() * region.length);
-    const [r, c] = region[cellIdx];
+    const cell = region[cellIdx];
+    if (!cell) continue;
+    const [r, c] = cell;
     
     // Find adjacent cells in other regions
     const neighbors = getNeighbors(r, c, size);
     const validNeighbors = neighbors.filter(([nr, nc]) => {
       const neighborRegion = findRegion(regions, nr, nc);
-      return neighborRegion !== regionIdx;
+      return neighborRegion >= 0 && neighborRegion !== regionIdx;
     });
     
     if (validNeighbors.length === 0) continue;
@@ -40,6 +44,8 @@ export function generateRegions(size, numSwaps = null, seed = null) {
     // Pick a random neighbor
     const [nr, nc] = validNeighbors[Math.floor(rng() * validNeighbors.length)];
     const neighborRegionIdx = findRegion(regions, nr, nc);
+    
+    if (neighborRegionIdx < 0) continue;
     
     // Try swapping
     if (canSwap(regions, regionIdx, neighborRegionIdx, r, c, nr, nc, size)) {

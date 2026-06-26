@@ -257,4 +257,10 @@ function showSuccess(msg) {
 }
 
 // Initialize on load
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    init();
+  } catch (e) {
+    console.error('Init failed:', e);
+  }
+});
