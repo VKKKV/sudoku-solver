@@ -3,116 +3,525 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sudoku Solver - Generic DLX Solver</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>Sudoku Solver</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            ds: {
+              bg: '#000', fg: '#f5f5f5', muted: '#999', dim: '#555',
+              rule: 'rgba(255,255,255,.06)', card: 'rgba(255,255,255,.03)',
+              accent: '#f5f5f5', 'accent-dim': 'rgba(255,255,255,.1)',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { -webkit-font-smoothing: antialiased; }
+    body { background: #000; color: #f5f5f5; font-family: 'Inter', system-ui, sans-serif; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+    canvas { image-rendering: -webkit-optimize-contrast; }
+  </style>
 </head>
 <body>
-  <header class="header">
-    <div>
-      <h1>Sudoku Solver</h1>
-      <span class="subtitle">DLX Algorithm · Any Size · Irregular Regions</span>
-    </div>
-    <a href="https://github.com" class="btn" style="text-decoration:none">GitHub</a>
-  </header>
-
-  <main class="main">
-    <div class="grid-panel panel">
-      <div class="panel-header">
-        <span>Grid</span>
-        <span id="status" class="status-text"></span>
+  <div id="app" class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="border-t border-ds-rule px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <h1 class="text-lg font-semibold tracking-tight">Sudoku Solver</h1>
+        <span class="text-[11px] text-ds-dim font-light">DLX · {{ size }}×{{ size }}</span>
       </div>
-      <div class="grid-container">
-        <canvas id="grid-canvas"></canvas>
-      </div>
-    </div>
+      <a href="https://github.com/VKKKV/sudoku-solver" target="_blank"
+         class="text-[11px] text-ds-muted hover:text-ds-fg transition-colors">GitHub</a>
+    </header>
 
-    <div class="controls-panel">
-      <div class="panel">
-        <div class="panel-header">Settings</div>
-        <div class="panel-body">
-          <div class="form-group">
-            <label>Grid Size</label>
-            <select id="grid-size">
-              <option value="4">4×4</option>
-              <option value="6">6×6</option>
-              <option value="9" selected>9×9</option>
-              <option value="12">12×12</option>
-              <option value="13">13×13</option>
-              <option value="16">16×16</option>
-              <option value="25">25×25</option>
-            </select>
+    <!-- Main -->
+    <main class="flex-1 flex">
+      <!-- Grid Area -->
+      <div class="flex-1 flex items-center justify-center p-6">
+        <canvas ref="canvas" class="cursor-crosshair"></canvas>
+      </div>
+
+      <!-- Sidebar -->
+      <aside class="w-72 border-l border-ds-rule flex flex-col">
+
+        <!-- Grid Size -->
+        <div class="px-5 py-4 border-b border-ds-rule">
+          <label class="text-[11px] text-ds-muted uppercase tracking-widest">Grid Size</label>
+          <div class="mt-2 flex items-center gap-2">
+            <input type="number" v-model.number="sizeInput" min="4" max="36"
+                   @keydown.enter="applySize"
+                   class="w-20 bg-transparent border border-ds-rule rounded-none px-3 py-1.5
+                          text-sm text-ds-fg focus:outline-none focus:border-ds-muted transition-colors"
+                   placeholder="13">
+            <span class="text-[11px] text-ds-dim">×</span>
+            <span class="text-[11px] text-ds-fg">{{ sizeInput }}</span>
+            <button @click="applySize"
+                    class="ml-auto text-[11px] px-3 py-1.5 border border-ds-rule hover:border-ds-muted
+                           transition-colors">
+              Apply
+            </button>
           </div>
+          <div class="mt-2 flex gap-1.5 flex-wrap">
+            <button v-for="s in [4,6,9,12,13,16,25]" :key="s"
+                    @click="sizeInput = s; applySize()"
+                    class="text-[10px] px-2 py-0.5 border border-ds-rule hover:border-ds-muted
+                           transition-colors"
+                    :class="size === s ? 'border-ds-fg text-ds-fg' : 'text-ds-dim'">
+              {{ s }}
+            </button>
+          </div>
+        </div>
 
-          <div class="form-group" style="margin-top:0.75rem">
-            <label>Edit Mode</label>
-            <div class="mode-toggle">
-              <button id="mode-numbers" class="btn active">Numbers</button>
-              <button id="mode-regions" class="btn">Regions</button>
+        <!-- Symbols -->
+        <div class="px-5 py-3 border-b border-ds-rule">
+          <label class="text-[11px] text-ds-muted uppercase tracking-widest">Symbols</label>
+          <div class="mt-1.5 text-[13px] font-light tracking-wide text-ds-fg font-mono">
+            {{ symbols.join(' ') }}
+          </div>
+        </div>
+
+        <!-- Mode -->
+        <div class="px-5 py-3 border-b border-ds-rule">
+          <label class="text-[11px] text-ds-muted uppercase tracking-widest">Mode</label>
+          <div class="mt-2 flex">
+            <button @click="mode = 'numbers'"
+                    class="flex-1 text-[11px] py-1.5 border transition-colors"
+                    :class="mode === 'numbers' ? 'border-ds-fg text-ds-fg' : 'border-ds-rule text-ds-dim hover:border-ds-muted'">
+              Numbers
+            </button>
+            <button @click="mode = 'regions'"
+                    class="flex-1 text-[11px] py-1.5 border border-l-0 transition-colors"
+                    :class="mode === 'regions' ? 'border-ds-fg text-ds-fg' : 'border-ds-rule text-ds-dim hover:border-ds-muted'">
+              Regions
+            </button>
+          </div>
+          <div v-if="mode === 'regions'" class="mt-2 flex gap-2">
+            <button @click="confirmRegion"
+                    class="flex-1 text-[11px] py-1.5 border border-ds-rule hover:border-ds-muted transition-colors">
+              Add Region ({{ regionDrawing.length }}/{{ size }})
+            </button>
+            <button @click="clearRegions"
+                    class="text-[11px] px-3 py-1.5 border border-ds-rule text-ds-dim hover:border-ds-muted transition-colors">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="px-5 py-3 border-b border-ds-rule flex flex-col gap-2">
+          <label class="text-[11px] text-ds-muted uppercase tracking-widest">Actions</label>
+          <div class="flex gap-2">
+            <button @click="genRegions"
+                    class="flex-1 text-[11px] py-1.5 border border-ds-rule hover:border-ds-muted transition-colors">
+              Gen Regions
+            </button>
+            <button @click="randomFill"
+                    class="flex-1 text-[11px] py-1.5 border border-ds-rule hover:border-ds-muted transition-colors">
+              Random Fill
+            </button>
+          </div>
+          <button @click="solve"
+                  :disabled="solving"
+                  class="w-full text-[11px] py-2 border transition-colors"
+                  :class="solving ? 'border-ds-rule text-ds-dim' : 'border-ds-fg text-ds-fg hover:bg-ds-fg hover:text-ds-bg'">
+            {{ solving ? 'Solving…' : 'Solve' }}
+          </button>
+          <div class="flex gap-2">
+            <button @click="toggleSolution" v-if="solution"
+                    class="flex-1 text-[11px] py-1.5 border border-ds-rule hover:border-ds-muted transition-colors">
+              {{ showSolution ? 'Hide' : 'Show' }} Solution
+            </button>
+            <button @click="clearGrid"
+                    class="flex-1 text-[11px] py-1.5 border border-ds-rule text-ds-dim hover:border-ds-muted transition-colors">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <!-- Symmetry toggle -->
+        <div class="px-5 py-3 border-b border-ds-rule">
+          <label class="flex items-center gap-2 cursor-pointer group">
+            <div @click="symmetric = !symmetric"
+                 class="w-4 h-4 border border-ds-rule transition-colors flex items-center justify-center"
+                 :class="symmetric ? 'border-ds-fg' : 'group-hover:border-ds-muted'">
+              <div v-if="symmetric" class="w-2 h-2 bg-ds-fg"></div>
             </div>
-          </div>
+            <span class="text-[11px] text-ds-muted group-hover:text-ds-fg transition-colors">Symmetric regions</span>
+          </label>
+        </div>
 
-          <div id="region-controls" class="region-controls" style="margin-top:0.75rem">
-            <button id="confirm-region" class="btn btn-success">Add Region</button>
-            <button id="clear-regions" class="btn">Clear All</button>
+        <!-- Status -->
+        <div class="mt-auto px-5 py-3 border-t border-ds-rule">
+          <div v-if="message" class="text-[11px] mb-2"
+               :class="messageType === 'error' ? 'text-red-400' : 'text-green-400'">
+            {{ message }}
           </div>
-
-          <div class="form-group" style="margin-top:0.75rem">
-            <div class="checkbox-group">
-              <input type="checkbox" id="symmetric">
-              <label for="symmetric">Symmetric regions</label>
-            </div>
+          <div class="text-[11px] text-ds-dim">
+            Cells: {{ filledCells }}/{{ totalCells }} · Regions: {{ regions.length }}/{{ size }}
+            <span v-if="solved" class="text-green-400 ml-1">✓ Solved {{ solveTime }}ms</span>
           </div>
         </div>
-      </div>
 
-      <div class="panel">
-        <div class="panel-header">Actions</div>
-        <div class="panel-body">
-          <div class="btn-group" style="margin-bottom:0.75rem">
-            <button id="generate-regions" class="btn">Gen Regions</button>
-            <button id="random-fill" class="btn">Random Fill</button>
+        <!-- Help -->
+        <details class="px-5 py-3 border-t border-ds-rule group">
+          <summary class="text-[11px] text-ds-dim cursor-pointer hover:text-ds-fg transition-colors">Help</summary>
+          <div class="mt-2 text-[11px] text-ds-dim leading-relaxed space-y-1.5">
+            <p><span class="text-ds-muted">Numbers:</span> Click cell, type 1-9 or A-Z. Del to clear.</p>
+            <p><span class="text-ds-muted">Regions:</span> Click cells to select ({{ size }} each), then Add Region.</p>
+            <p><span class="text-ds-muted">Arrows:</span> Navigate cells. Tab to move right.</p>
           </div>
-          <div class="btn-group" style="margin-bottom:0.75rem">
-            <button id="solve-btn" class="btn btn-primary">Solve</button>
-            <button id="toggle-solution" class="btn">Show Solution</button>
-          </div>
-          <div class="btn-group">
-            <button id="clear-grid" class="btn">Clear Grid</button>
-            <button id="reset-all" class="btn">Reset All</button>
-          </div>
-          <div id="message"></div>
-        </div>
-      </div>
+        </details>
+      </aside>
+    </main>
+  </div>
 
-      <div class="panel">
-        <div class="panel-header">Presets</div>
-        <div class="panel-body">
-          <div class="presets">
-            <button id="preset-13x13" class="btn">13×13 + abcd</button>
-          </div>
-        </div>
-      </div>
+  <script type="module" src="js/dlx.js"></script>
+  <script type="module" src="js/solver.js"></script>
+  <script type="module" src="js/regions.js"></script>
+  <script type="module">
+    import { DLX } from './js/dlx.js';
+    import { solveSudoku, validateGrid, getSymbols } from './js/solver.js';
+    import { generateRegions, generateSymmetricRegions } from './js/regions.js';
 
-      <div class="panel">
-        <div class="panel-header">Info</div>
-        <div class="panel-body">
-          <div class="help-text">
-            <p><strong>Numbers mode:</strong> Click cell, type <span class="kbd">1</span>-<span class="kbd">9</span> or <span class="kbd">A</span>-<span class="kbd">Z</span>. Use <span class="kbd">Delete</span> to clear.</p>
-            <p style="margin-top:0.5rem"><strong>Regions mode:</strong> Click cells to select, then <strong>Add Region</strong>. Each region must have exactly N cells.</p>
-            <p id="symbols" style="margin-top:0.5rem"></p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
+    const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 
-  <footer class="status-bar">
-    <span>DLX Algorithm by Donald Knuth</span>
-    <span id="performance"></span>
-  </footer>
+    createApp({
+      setup() {
+        const canvas = ref(null);
+        const size = ref(13);
+        const sizeInput = ref(13);
+        const mode = ref('numbers');
+        const symmetric = ref(false);
+        const solving = ref(false);
+        const solved = ref(false);
+        const solveTime = ref(0);
+        const solution = ref(null);
+        const showSolution = ref(false);
+        const message = ref('');
+        const messageType = ref('info');
+        const grid = ref([]);
+        const regions = ref([]);
+        const regionDrawing = ref([]);
+        const selectedCell = ref(null);
+        const hoveredCell = ref(null);
 
-  <script type="module" src="js/app.js"></script>
+        let cellSize = 0;
+        let padding = 0;
+        let ctx = null;
+
+        const symbols = computed(() => getSymbols(size.value));
+        const totalCells = computed(() => size.value * size.value);
+        const filledCells = computed(() => grid.value.flat().filter(v => v > 0).length);
+
+        function initGrid() {
+          grid.value = Array.from({ length: size.value }, () => new Array(size.value).fill(0));
+          solution.value = null;
+          showSolution.value = false;
+          solved.value = false;
+          regionDrawing.value = [];
+          selectedCell.value = null;
+        }
+
+        function applySize() {
+          const s = Math.max(4, Math.min(36, sizeInput.value || 13));
+          sizeInput.value = s;
+          size.value = s;
+          initGrid();
+          regions.value = generateRegions(s, s * s * 3, Date.now());
+          nextTick(() => resize());
+        }
+
+        function resize() {
+          if (!canvas.value) return;
+          const container = canvas.value.parentElement;
+          const maxDim = Math.min(container.clientWidth - 48, container.clientHeight - 48, 720);
+          cellSize = Math.floor(maxDim / size.value);
+          padding = Math.max(12, cellSize);
+          const dim = cellSize * size.value + padding * 2;
+          const dpr = window.devicePixelRatio || 1;
+
+          canvas.value.width = dim * dpr;
+          canvas.value.height = dim * dpr;
+          canvas.value.style.width = dim + 'px';
+          canvas.value.style.height = dim + 'px';
+
+          ctx = canvas.value.getContext('2d');
+          ctx.scale(dpr, dpr);
+          draw();
+        }
+
+        function getCellFromEvent(e) {
+          const rect = canvas.value.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          const col = Math.floor((x - padding) / cellSize);
+          const row = Math.floor((y - padding) / cellSize);
+          if (row >= 0 && row < size.value && col >= 0 && col < size.value) return [row, col];
+          return null;
+        }
+
+        function onCanvasClick(e) {
+          const cell = getCellFromEvent(e);
+          if (!cell) return;
+          const [r, c] = cell;
+          if (mode.value === 'regions') {
+            const key = `${r},${c}`;
+            const idx = regionDrawing.value.indexOf(key);
+            if (idx >= 0) regionDrawing.value.splice(idx, 1);
+            else if (regionDrawing.value.length < size.value) regionDrawing.value.push(key);
+          } else {
+            selectedCell.value = cell;
+          }
+          draw();
+        }
+
+        function onCanvasMove(e) {
+          const cell = getCellFromEvent(e);
+          hoveredCell.value = cell;
+          draw();
+        }
+
+        function onCanvasLeave() {
+          hoveredCell.value = null;
+          draw();
+        }
+
+        function onKeydown(e) {
+          if (!selectedCell.value || mode.value !== 'numbers') return;
+          const [r, c] = selectedCell.value;
+          const syms = symbols.value;
+
+          if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+            grid.value[r][c] = 0; draw(); return;
+          }
+          const idx = syms.indexOf(e.key.toUpperCase());
+          if (idx >= 0) { grid.value[r][c] = idx + 1; draw(); return; }
+
+          let nr = r, nc = c;
+          if (e.key === 'ArrowUp') nr = Math.max(0, r - 1);
+          else if (e.key === 'ArrowDown') nr = Math.min(size.value - 1, r + 1);
+          else if (e.key === 'ArrowLeft') nc = Math.max(0, c - 1);
+          else if (e.key === 'ArrowRight') nc = Math.min(size.value - 1, c + 1);
+          else if (e.key === 'Tab') { nc = c + 1; if (nc >= size.value) { nc = 0; nr = Math.min(size.value - 1, r + 1); } e.preventDefault(); }
+          else return;
+          selectedCell.value = [nr, nc];
+          draw();
+        }
+
+        // ─── Region helpers ───
+        const regionHue = (i) => (i * 360 / size.value + 20) % 360;
+
+        function regionAt(r, c) {
+          return regions.value.findIndex(reg => reg.some(([cr, cc]) => cr === r && cc === c));
+        }
+
+        function confirmRegion() {
+          if (regionDrawing.value.length !== size.value) {
+            msg(`Region needs exactly ${size.value} cells`, 'error'); return;
+          }
+          const cells = regionDrawing.value.map(k => k.split(',').map(Number));
+          regions.value.push(cells);
+          regionDrawing.value = [];
+          draw();
+        }
+
+        function clearRegions() { regions.value = []; regionDrawing.value = []; draw(); }
+
+        function genRegions() {
+          const seed = Date.now();
+          regions.value = symmetric.value
+            ? generateSymmetricRegions(size.value, size.value * size.value * 3, seed)
+            : generateRegions(size.value, size.value * size.value * 3, seed);
+          draw();
+        }
+
+        function randomFill() {
+          initGrid();
+          const n = Math.floor(size.value * size.value * 0.15);
+          for (let i = 0; i < n; i++) {
+            const r = Math.floor(Math.random() * size.value);
+            const c = Math.floor(Math.random() * size.value);
+            grid.value[r][c] = Math.floor(Math.random() * size.value) + 1;
+          }
+          draw();
+        }
+
+        function solve() {
+          const errors = validateGrid(grid.value, regions.value, size.value);
+          if (errors.length) { msg(errors[0], 'error'); return; }
+          solving.value = true;
+          setTimeout(() => {
+            try {
+              const t0 = performance.now();
+              const sols = solveSudoku(grid.value, regions.value, size.value, 2);
+              solveTime.value = (performance.now() - t0).toFixed(1);
+              if (!sols.length) { msg('No solution', 'error'); }
+              else {
+                solution.value = sols[0];
+                showSolution.value = true;
+                solved.value = true;
+                if (sols.length > 1) msg(`Multiple solutions (${sols.length})`, 'error');
+                else msg('', '');
+              }
+              draw();
+            } catch (e) { msg(e.message, 'error'); }
+            solving.value = false;
+          }, 10);
+        }
+
+        function toggleSolution() { showSolution.value = !showSolution.value; draw(); }
+
+        function clearGrid() { initGrid(); draw(); }
+
+        let msgTimer = null;
+        function msg(text, type) {
+          message.value = text; messageType.value = type;
+          clearTimeout(msgTimer);
+          if (text) msgTimer = setTimeout(() => { message.value = ''; }, 5000);
+        }
+
+        // ─── Draw ───
+        function draw() {
+          if (!ctx) return;
+          const s = size.value;
+          const cs = cellSize;
+          const p = padding;
+          const display = showSolution.value && solution.value ? solution.value : grid.value;
+
+          ctx.clearRect(0, 0, canvas.value.width, canvas.value.height);
+
+          // Region fills
+          for (let i = 0; i < regions.value.length; i++) {
+            ctx.fillStyle = `hsla(${regionHue(i)}, 50%, 55%, 0.08)`;
+            for (const [r, c] of regions.value[i]) {
+              ctx.fillRect(p + c * cs, p + r * cs, cs, cs);
+            }
+          }
+
+          // Region drawing preview
+          if (regionDrawing.value.length) {
+            ctx.fillStyle = 'rgba(255,255,255,0.06)';
+            for (const key of regionDrawing.value) {
+              const [r, c] = key.split(',').map(Number);
+              ctx.fillRect(p + c * cs, p + r * cs, cs, cs);
+            }
+          }
+
+          // Grid lines
+          ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+          ctx.lineWidth = 1;
+          for (let i = 0; i <= s; i++) {
+            ctx.beginPath(); ctx.moveTo(p + i * cs, p); ctx.lineTo(p + i * cs, p + s * cs); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(p, p + i * cs); ctx.lineTo(p + s * cs, p + i * cs); ctx.stroke();
+          }
+
+          // Block lines (for grids with rectangular factors)
+          const blockR = bestFactor(s);
+          if (blockR > 1 && s % blockR === 0) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 1.5;
+            const blockC = s / blockR;
+            for (let i = 0; i <= s; i += blockR) {
+              ctx.beginPath(); ctx.moveTo(p + i * cs, p); ctx.lineTo(p + i * cs, p + s * cs); ctx.stroke();
+            }
+            for (let i = 0; i <= s; i += blockC) {
+              ctx.beginPath(); ctx.moveTo(p, p + i * cs); ctx.lineTo(p + s * cs, p + i * cs); ctx.stroke();
+            }
+          }
+
+          // Region borders
+          for (let i = 0; i < regions.value.length; i++) {
+            ctx.strokeStyle = `hsla(${regionHue(i)}, 60%, 55%, 0.5)`;
+            ctx.lineWidth = 2;
+            for (const [r, c] of regions.value[i]) {
+              const x = p + c * cs, y = p + r * cs;
+              if (regionAt(r - 1, c) !== i) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + cs, y); ctx.stroke(); }
+              if (regionAt(r + 1, c) !== i) { ctx.beginPath(); ctx.moveTo(x, y + cs); ctx.lineTo(x + cs, y + cs); ctx.stroke(); }
+              if (regionAt(r, c - 1) !== i) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + cs); ctx.stroke(); }
+              if (regionAt(r, c + 1) !== i) { ctx.beginPath(); ctx.moveTo(x + cs, y); ctx.lineTo(x + cs, y + cs); ctx.stroke(); }
+            }
+          }
+
+          // Outer border
+          ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(p, p, s * cs, s * cs);
+
+          // Selected / hovered highlight
+          if (selectedCell.value) {
+            const [sr, sc] = selectedCell.value;
+            ctx.fillStyle = 'rgba(255,255,255,0.06)';
+            ctx.fillRect(p + sc * cs, p + sr * cs, cs, cs);
+            // Crosshair
+            ctx.fillStyle = 'rgba(255,255,255,0.03)';
+            ctx.fillRect(p, p + sr * cs, s * cs, cs);
+            ctx.fillRect(p + sc * cs, p, cs, s * cs);
+          }
+          if (hoveredCell.value) {
+            const [hr, hc] = hoveredCell.value;
+            ctx.fillStyle = 'rgba(255,255,255,0.03)';
+            ctx.fillRect(p + hc * cs, p + hr * cs, cs, cs);
+          }
+
+          // Values
+          const syms = symbols.value;
+          const fontSize = Math.max(10, Math.floor(cs * 0.45));
+          ctx.font = `500 ${fontSize}px Inter, system-ui, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          for (let r = 0; r < s; r++) {
+            for (let c = 0; c < s; c++) {
+              const v = display[r][c];
+              if (!v) continue;
+              const isOriginal = grid.value[r][c] > 0;
+              const isSolved = showSolution.value && !isOriginal;
+              ctx.fillStyle = isSolved ? '#4ade80' : (isOriginal ? '#f5f5f5' : 'rgba(255,255,255,0.35)');
+              ctx.fillText(syms[v - 1], p + c * cs + cs / 2, p + r * cs + cs / 2 + 1);
+            }
+          }
+        }
+
+        function bestFactor(n) {
+          for (let i = Math.floor(Math.sqrt(n)); i >= 2; i--) {
+            if (n % i === 0) return i;
+          }
+          return 1;
+        }
+
+        onMounted(() => {
+          regions.value = generateRegions(size.value, size.value * size.value * 3, Date.now());
+          initGrid();
+          nextTick(() => {
+            resize();
+            canvas.value.addEventListener('click', onCanvasClick);
+            canvas.value.addEventListener('mousemove', onCanvasMove);
+            canvas.value.addEventListener('mouseleave', onCanvasLeave);
+            document.addEventListener('keydown', onKeydown);
+            window.addEventListener('resize', resize);
+          });
+        });
+
+        return {
+          canvas, size, sizeInput, mode, symmetric, solving, solved, solveTime,
+          solution, showSolution, message, messageType, symbols,
+          totalCells, filledCells, regions, regionDrawing, grid,
+          applySize, genRegions, randomFill, solve, toggleSolution,
+          clearGrid, confirmRegion, clearRegions,
+        };
+      }
+    }).mount('#app');
+  </script>
 </body>
 </html>
