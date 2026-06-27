@@ -1,7 +1,7 @@
 import { DLX } from './dlx.js';
 
 /**
- * Symbol mapping: 1-9, then A-Z for larger grids.
+ * Symbol mapping: 1-9, then A-Z, then @ for 36x36 grids.
  */
 export function getSymbols(size) {
   const symbols = [];
@@ -11,7 +11,8 @@ export function getSymbols(size) {
   for (let i = 0; i < size - 9 && i < 26; i++) {
     symbols.push(String.fromCharCode(65 + i)); // A-Z
   }
-  return symbols;
+  if (size > symbols.length) symbols.push('@');
+  return symbols.slice(0, size);
 }
 
 /**
@@ -67,7 +68,9 @@ function buildRegionMap(regions, size) {
   
   for (let regionIdx = 0; regionIdx < regions.length; regionIdx++) {
     for (const [r, c] of regions[regionIdx]) {
-      map[r][c] = regionIdx;
+      if (r >= 0 && r < size && c >= 0 && c < size) {
+        map[r][c] = regionIdx;
+      }
     }
   }
   
@@ -243,6 +246,10 @@ export function validateGrid(grid, regions, size) {
   const covered = new Set();
   for (const region of regions) {
     for (const [r, c] of region) {
+      if (r < 0 || r >= size || c < 0 || c >= size) {
+        errors.push(`Cell (${r},${c}) is outside the ${size}×${size} grid`);
+        continue;
+      }
       const key = `${r},${c}`;
       if (covered.has(key)) {
         errors.push(`Cell (${r},${c}) is in multiple regions`);
@@ -265,6 +272,32 @@ export function validateGrid(grid, regions, size) {
       }
     }
   }
-  
+
+  const regionMap = buildRegionMap(regions, size);
+  checkDuplicates(grid, size, errors, (r) => `row ${r + 1}`, (r, c) => r);
+  checkDuplicates(grid, size, errors, (c) => `column ${c + 1}`, (r, c) => c);
+  checkDuplicates(grid, size, errors, (i) => `region ${i + 1}`, (r, c) => regionMap[r]?.[c]);
+
   return errors;
+}
+
+function checkDuplicates(grid, size, errors, labelFor, bucketFor) {
+  const seen = Array.from({ length: size }, () => new Map());
+
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const v = grid[r]?.[c];
+      if (!v || v < 1 || v > size) continue;
+
+      const bucket = bucketFor(r, c);
+      if (bucket < 0 || bucket >= size) continue;
+
+      const previous = seen[bucket].get(v);
+      if (previous) {
+        errors.push(`Duplicate ${v} in ${labelFor(bucket)} at (${previous[0]},${previous[1]}) and (${r},${c})`);
+      } else {
+        seen[bucket].set(v, [r, c]);
+      }
+    }
+  }
 }

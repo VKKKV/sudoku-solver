@@ -67,8 +67,8 @@ export function generateRegions(size, numSwaps = null, seed = null) {
  * Create initial rectangular regions.
  */
 function createRectangularRegions(size) {
-  // Find best factorization for rectangular regions
   const { rows: blockRows, cols: blockCols } = findBestBlockSize(size);
+  const blocksPerRow = size / blockCols;
   
   const regions = Array.from({ length: size }, () => []);
   
@@ -76,7 +76,7 @@ function createRectangularRegions(size) {
     for (let c = 0; c < size; c++) {
       const blockR = Math.floor(r / blockRows);
       const blockC = Math.floor(c / blockCols);
-      const regionIdx = (blockR * blockCols + blockC) % size;
+      const regionIdx = blockR * blocksPerRow + blockC;
       regions[regionIdx].push([r, c]);
     }
   }
@@ -198,6 +198,7 @@ export function generateSymmetricRegions(size, numSwaps = null, seed = null) {
   for (let i = 0; i < swaps; i++) {
     const regionIdx = Math.floor(rng() * size);
     const region = regions[regionIdx];
+    if (!region || region.length === 0) continue;
     const cellIdx = Math.floor(rng() * region.length);
     const [r, c] = region[cellIdx];
     

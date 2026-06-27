@@ -79,10 +79,8 @@ export class DLX {
       }
       
       this.search(k + 1);
-      
-      if (this.solutions.length >= this.maxSolutions) return;
-      
-      // Backtrack
+
+      // Backtrack before honoring maxSolutions so the DLX links stay valid.
       row = this.solution[k];
       this.solution[k] = null;
       col = row.column;
@@ -90,6 +88,8 @@ export class DLX {
       for (let j = row.left; j !== row; j = j.left) {
         this.uncover(j.column);
       }
+
+      if (this.solutions.length >= this.maxSolutions) break;
     }
     
     this.uncover(col);

@@ -46,14 +46,14 @@
     </header>
 
     <!-- Main -->
-    <main class="flex-1 flex">
+    <main class="flex-1 flex flex-col lg:flex-row min-h-0">
       <!-- Grid Area -->
-      <div class="flex-1 flex items-center justify-center p-6">
-        <canvas ref="canvas" class="cursor-crosshair"></canvas>
+      <div class="flex-1 flex items-center justify-center p-4 sm:p-6 min-h-[320px]">
+        <canvas ref="canvas" class="cursor-crosshair focus:outline-none" tabindex="0" role="application" aria-label="Sudoku grid"></canvas>
       </div>
 
       <!-- Sidebar -->
-      <aside class="w-72 border-l border-ds-rule flex flex-col">
+      <aside class="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-ds-rule flex flex-col">
 
         <!-- Grid Size -->
         <div class="px-5 py-4 border-b border-ds-rule">
@@ -163,7 +163,7 @@
 
         <!-- Status -->
         <div class="mt-auto px-5 py-3 border-t border-ds-rule">
-          <div v-if="message" class="text-[11px] mb-2"
+          <div v-if="message" class="text-[11px] mb-2" role="status" aria-live="polite"
                :class="messageType === 'error' ? 'text-red-400' : 'text-green-400'">
             {{ message }}
           </div>
@@ -245,8 +245,8 @@
         function resize() {
           if (!canvas.value) return;
           const container = canvas.value.parentElement;
-          const maxDim = Math.min(container.clientWidth - 48, container.clientHeight - 48, 720);
-          cellSize = Math.floor(maxDim / size.value);
+          const maxDim = Math.max(240, Math.min(container.clientWidth - 48, container.clientHeight - 48, 720));
+          cellSize = Math.max(4, Math.floor(maxDim / size.value));
           padding = Math.max(12, cellSize);
           const dim = cellSize * size.value + padding * 2;
           const dpr = window.devicePixelRatio || 1;
@@ -274,6 +274,7 @@
         function onCanvasClick(e) {
           const cell = getCellFromEvent(e);
           if (!cell) return;
+          canvas.value.focus();
           const [r, c] = cell;
           if (mode.value === 'regions') {
             const key = `${r},${c}`;
@@ -298,25 +299,31 @@
         }
 
         function onKeydown(e) {
+          if (isEditableTarget(e.target)) return;
           if (!selectedCell.value || mode.value !== 'numbers') return;
           const [r, c] = selectedCell.value;
           const syms = symbols.value;
 
           if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+            e.preventDefault();
             grid.value[r][c] = 0; draw(); return;
           }
           const idx = syms.indexOf(e.key.toUpperCase());
-          if (idx >= 0) { grid.value[r][c] = idx + 1; draw(); return; }
+          if (idx >= 0) { e.preventDefault(); grid.value[r][c] = idx + 1; draw(); return; }
 
           let nr = r, nc = c;
-          if (e.key === 'ArrowUp') nr = Math.max(0, r - 1);
-          else if (e.key === 'ArrowDown') nr = Math.min(size.value - 1, r + 1);
-          else if (e.key === 'ArrowLeft') nc = Math.max(0, c - 1);
-          else if (e.key === 'ArrowRight') nc = Math.min(size.value - 1, c + 1);
+          if (e.key === 'ArrowUp') { nr = Math.max(0, r - 1); e.preventDefault(); }
+          else if (e.key === 'ArrowDown') { nr = Math.min(size.value - 1, r + 1); e.preventDefault(); }
+          else if (e.key === 'ArrowLeft') { nc = Math.max(0, c - 1); e.preventDefault(); }
+          else if (e.key === 'ArrowRight') { nc = Math.min(size.value - 1, c + 1); e.preventDefault(); }
           else if (e.key === 'Tab') { nc = c + 1; if (nc >= size.value) { nc = 0; nr = Math.min(size.value - 1, r + 1); } e.preventDefault(); }
           else return;
           selectedCell.value = [nr, nc];
           draw();
+        }
+
+        function isEditableTarget(target) {
+          return target?.matches?.('input, textarea, select, [contenteditable="true"]');
         }
 
         // ─── Region helpers ───

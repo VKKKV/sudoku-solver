@@ -8,7 +8,7 @@ Generic Sudoku solver and generator with interactive web UI. Supports any grid s
 
 - **Any grid size** — Type any number from 4 to 36
 - **Irregular regions** — Draw custom jigsaw shapes or auto-generate
-- **Custom symbols** — Auto-maps 1-9, A-Z for larger grids
+- **Custom symbols** — Auto-maps 1-9, A-Z, and @ for 36×36 grids
 - **Puzzle generator** — Generates valid puzzles with unique solution guarantee
 - **Fast solver** — DLX (Dancing Links) algorithm
 - **High DPI canvas** — Crisp rendering on retina displays
@@ -36,7 +36,7 @@ Or click **Gen Regions** to auto-generate irregular regions.
 
 ### Generating Puzzles
 
-Click **Gen Puzzle** to generate a valid puzzle:
+Click **Random Fill** to generate a valid puzzle:
 
 1. DLX generates a complete valid solution (randomized for variety)
 2. Cells are removed one by one
