@@ -79,17 +79,16 @@ DLX finds all valid solutions using:
 2. **Unique-removal loop** — removes cells one by one, checking uniqueness after each removal
 3. **Target clue ratio** — defaults to 25% of cells filled
 
-## Tech Stack
+## Implementation
 
-| Component | Technology |
-|----------|-----------|
-| UI Framework | Vue 3 (CDN) |
-| Styling | Tailwind CSS (CDN) |
-| Rendering | Canvas API + devicePixelRatio |
-| Solver | Custom DLX implementation |
-| Region Gen | Random swap + BFS connectivity |
+- **Static app** — Plain HTML + JavaScript modules, served directly by the browser
+- **UI runtime** — Vue 3 global build from CDN, used for reactive state and event binding
+- **Styling** — Tailwind CDN utility classes plus a small inline Dark Swiss theme config
+- **Rendering** — Canvas API with devicePixelRatio scaling
+- **Solver** — Custom DLX implementation in `js/dlx.js` and `js/solver.js`
+- **Region Gen** — Random swap generation with BFS connectivity checks in `js/regions.js`
 
-No build step, no dependencies. Edit files and refresh.
+No package manager, build step, or bundled framework. Runtime CDN dependencies are loaded from `index.html`; edit files and refresh.
 
 ## Development
 
@@ -105,7 +104,7 @@ http://localhost:8080
 
 ```
 sudoku-solver/
-├── index.html          # Vue 3 app + UI
+├── index.html          # Static HTML shell, CDN imports, Vue app setup, UI
 ├── js/
 │   ├── dlx.js          # Dancing Links algorithm
 │   ├── solver.js       # DLX matrix builder, puzzle generator
